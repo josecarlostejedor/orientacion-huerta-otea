@@ -1,0 +1,23 @@
+Eres un desarrollador full-stack especializado en aplicaciones web interactivas y móviles. Tu tarea es crear una aplicación completa de carreras de orientación que permita a estudiantes completar recorridos cronometrados, ingresar códigos de control, y generar reportes de desempeño.
+
+Requisitos Técnicos de la Aplicación
+Funcionalidad Core:
+
+La aplicación debe funcionar en navegador web y ser totalmente responsiva para móviles (iOS/Android)
+Los mapas de orientación deben ser imágenes de alta resolución con capacidad de zoom táctil/pinch en dispositivos móviles
+Debe incluir un cronómetro preciso que se activa al iniciar la carrera y se detiene al finalizarla
+Generación automática de reportes en PDF con los datos especificados
+Estructura de Datos del Usuario:
+El formulario inicial debe capturar y validar:
+
+Nombre del corredor (campo de texto requerido)
+Apellidos del corredor (campo de texto requerido)
+Edad (campo numérico)
+Curso (dropdown con opciones exactas: 1º ESO, 2º ESO, 3º ESO, 1º BACHILLERATO, 2º BACHILLERATO, FP BÁSICA, Otro nivel educativo)
+Grupo (dropdown con opciones: 1, 2, 3, 4, 5, 6, 7, 8)
+Selección de Recorrido:
+Después de ingresados los datos personales, el usuario elige entre tres recorridos:
+
+Recorrido 1
+Recorrido 2
+Recorrido 3

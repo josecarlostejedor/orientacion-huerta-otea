@@ -1,0 +1,5 @@
+{
+  "name": "Orientación Huerta Otea",
+  "description": "Aplicación de carreras de orientación para estudiantes con cronómetro, validación de balizas y reportes PDF.",
+  "requestFramePermissions": []
+}
