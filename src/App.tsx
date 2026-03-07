@@ -132,7 +132,8 @@ export default function App() {
         score: score.toFixed(1),
         totalTime: formatTime(totalTime),
         borgScale,
-        correctCount
+        correctCount,
+        timestamp: new Date().toISOString()
       };
 
       fetch(googleSheetsUrl, {
@@ -189,19 +190,30 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-emerald-100">
-      <header className="bg-white border-b border-stone-200 sticky top-0 z-50 px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="bg-emerald-600 p-1.5 rounded-lg">
+      <header className="bg-white/80 backdrop-blur-md border-b border-stone-200 sticky top-0 z-50 px-4 py-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="bg-emerald-600 p-2 rounded-xl shadow-inner">
             <MapIcon className="w-5 h-5 text-white" />
           </div>
-          <h1 className="font-bold text-lg tracking-tight">Huerta Otea</h1>
-        </div>
-        {step === 'RACE' && (
-          <div className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-full font-mono text-sm font-bold text-emerald-700 border border-stone-200">
-            <Timer className="w-4 h-4" />
-            {formatTime(currentTime)}
+          <div>
+            <h1 className="font-black text-lg tracking-tight leading-none">Huerta Otea</h1>
+            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-tighter">IES Lucía de Medrano</p>
           </div>
-        )}
+        </div>
+        <div className="flex items-center gap-3">
+          {step === 'RACE' && (
+            <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full font-mono text-sm font-bold text-emerald-700 border border-emerald-100 shadow-sm">
+              <Timer className="w-4 h-4 animate-pulse" />
+              {formatTime(currentTime)}
+            </div>
+          )}
+          {(step === 'ROUTE_SELECT' || step === 'RACE' || step === 'RESULTS') && (
+            <div className="hidden sm:flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-full text-[10px] font-bold text-stone-500 border border-stone-200">
+              <User className="w-3 h-3" />
+              {userData.course} - {userData.group}
+            </div>
+          )}
+        </div>
       </header>
 
       <main className="max-w-md mx-auto p-4 pb-24">
@@ -210,14 +222,31 @@ export default function App() {
             <motion.div key="form" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
               <div className="space-y-4 text-center">
                 <div className="space-y-1">
-                  <h2 className="text-xl font-black text-stone-800 leading-tight">Recorridos de Orientación</h2>
-                  <p className="text-sm font-bold text-emerald-700">IES Lucía de Medrano</p>
+                  <h2 className="text-2xl font-black text-stone-800 leading-tight tracking-tighter">Recorridos de Orientación</h2>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="h-px w-8 bg-emerald-200"></span>
+                    <p className="text-sm font-bold text-emerald-700 uppercase tracking-wider">IES Lucía de Medrano</p>
+                    <span className="h-px w-8 bg-emerald-200"></span>
+                  </div>
+                  <p className="text-[10px] text-stone-400 uppercase tracking-widest font-bold">Departamento de Educación Física</p>
                 </div>
-                <div className="rounded-3xl overflow-hidden shadow-xl border-4 border-white aspect-[16/9]">
-                  <img src="https://raw.githubusercontent.com/josecarlostejedor/orientacion-huerta-otea/main/recorridoorienta.jpg" alt="Orientación" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                
+                <div className="relative group">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-[2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                  <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white aspect-[16/9]">
+                    <img src="https://raw.githubusercontent.com/josecarlostejedor/orientacion-huerta-otea/main/recorridoorienta.jpg" alt="Orientación" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-6">
+                      <div className="text-left">
+                        <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest">Localización</p>
+                        <p className="text-white text-sm font-bold">Parque de Huerta Otea, Salamanca</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-left pt-2">
-                  <h3 className="text-lg font-bold text-stone-800">Datos del Corredor</h3>
+
+                <div className="text-left pt-4 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-emerald-600 rounded-full"></div>
+                  <h3 className="text-lg font-black text-stone-800 tracking-tight">Datos del Corredor</h3>
                 </div>
               </div>
 
@@ -235,18 +264,57 @@ export default function App() {
                 </select>
               </div>
 
-              <button disabled={!userData.firstName || !userData.lastName} onClick={() => setStep('ROUTE_SELECT')} className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2">
+              <button disabled={!userData.firstName || !userData.lastName} onClick={() => setStep('ROUTE_SELECT')} className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors">
                 Continuar <ChevronRight className="w-5 h-5" />
               </button>
+
+              <footer className="pt-8 border-t border-stone-200 text-center space-y-3">
+                <div className="flex justify-center gap-4 opacity-50">
+                  <Activity className="w-4 h-4" />
+                  <MapIcon className="w-4 h-4" />
+                  <Timer className="w-4 h-4" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-stone-400 uppercase tracking-tighter">Proyecto de Orientación Escolar</p>
+                  <p className="text-[11px] font-black text-stone-500 uppercase">App creada por J.C. Tejedor</p>
+                </div>
+              </footer>
             </motion.div>
           )}
 
           {step === 'ROUTE_SELECT' && (
             <motion.div key="route-select" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
               <div className="flex items-center gap-2">
-                <button onClick={() => setStep('FORM')} className="p-2 hover:bg-stone-200 rounded-full"><ChevronLeft className="w-5 h-5" /></button>
+                <button onClick={() => setStep('FORM')} className="p-2 hover:bg-stone-200 rounded-full transition-colors"><ChevronLeft className="w-5 h-5" /></button>
                 <h2 className="text-2xl font-bold text-stone-800">Selecciona Recorrido</h2>
               </div>
+
+              <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 shadow-sm">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="bg-emerald-600 p-2 rounded-lg">
+                    <User className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Corredor Registrado</p>
+                    <p className="text-lg font-black text-stone-800 leading-none">{userData.firstName} {userData.lastName}</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 pt-3 border-t border-emerald-100/50">
+                  <div>
+                    <p className="text-[9px] font-bold text-stone-400 uppercase">Curso</p>
+                    <p className="text-sm font-bold text-stone-600">{userData.course}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold text-stone-400 uppercase">Grupo</p>
+                    <p className="text-sm font-bold text-stone-600">{userData.group}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold text-stone-400 uppercase">Edad</p>
+                    <p className="text-sm font-bold text-stone-600">{userData.age} años</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid gap-4">
                 {ROUTES.map((route) => (
                   <button key={route.id} onClick={() => setSelectedRoute(route)} className={cn("p-6 rounded-2xl border-2 text-left transition-all flex items-center justify-between", selectedRoute?.id === route.id ? "border-emerald-500 bg-emerald-50" : "border-stone-200 bg-white")}>
@@ -303,38 +371,155 @@ export default function App() {
 
           {step === 'RESULTS' && raceResult && (
             <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-              <div className="bg-white p-8 rounded-3xl border border-stone-200 shadow-sm text-center space-y-4">
-                <h2 className="text-stone-500 font-bold uppercase text-xs">Puntuación</h2>
-                <div className="text-6xl font-black text-emerald-600">{raceResult.score.toFixed(1)}<span className="text-2xl text-stone-300">/10</span></div>
-                <div className="flex justify-center gap-8 pt-4 border-t border-stone-100">
-                  <div><p className="text-xs font-bold text-stone-400">TIEMPO</p><p className="font-bold">{formatTime(raceResult.totalTime)}</p></div>
-                  <div><p className="text-xs font-bold text-stone-400">ACIERTOS</p><p className="font-bold">{raceResult.results.filter(r => r.isCorrect).length}/6</p></div>
+              <div className="bg-white p-8 rounded-3xl border border-stone-200 shadow-sm text-center space-y-4 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
+                <h2 className="text-stone-500 font-bold uppercase text-xs tracking-widest">Puntuación Final</h2>
+                <div className="text-7xl font-black text-emerald-600 tracking-tighter drop-shadow-sm">
+                  {raceResult.score.toFixed(1)}
+                  <span className="text-2xl text-stone-300 font-light ml-1">/10</span>
+                </div>
+                <div className="flex justify-center gap-8 pt-6 border-t border-stone-100">
+                  <div className="text-center">
+                    <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Tiempo</p>
+                    <p className="font-bold text-stone-700">{formatTime(raceResult.totalTime)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Aciertos</p>
+                    <p className="font-bold text-stone-700">{raceResult.results.filter(r => r.isCorrect).length}/6</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Grupo</p>
+                    <p className="font-bold text-stone-700">{raceResult.userData.course} {raceResult.userData.group}</p>
+                  </div>
                 </div>
               </div>
 
               <div className="flex gap-3">
-                <button onClick={generatePDF} className="flex-1 bg-stone-800 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2"><FileText className="w-5 h-5" /> PDF</button>
-                <button onClick={() => window.location.reload()} className="bg-stone-100 text-stone-600 font-bold px-6 rounded-2xl">Reiniciar</button>
+                <button onClick={generatePDF} className="flex-1 bg-stone-900 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-black transition-all shadow-lg active:scale-95">
+                  <FileText className="w-5 h-5" /> Descargar PDF
+                </button>
+                <button onClick={() => window.location.reload()} className="bg-stone-100 text-stone-600 font-bold px-6 rounded-2xl hover:bg-stone-200 transition-colors">
+                  Reiniciar
+                </button>
               </div>
 
-              {import.meta.env.VITE_GOOGLE_SHEETS_VIEW_URL && (
-                <div className="pt-4 flex justify-center">
-                  <a href={import.meta.env.VITE_GOOGLE_SHEETS_VIEW_URL} target="_blank" rel="noopener noreferrer" className="text-[10px] text-stone-300 hover:text-stone-500 uppercase font-bold flex items-center gap-1">
-                    <FileText className="w-3 h-3" /> Ver Registro en Google Sheets
-                  </a>
+              <footer className="pt-8 text-center space-y-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-stone-400 uppercase tracking-widest font-bold">IES Lucía de Medrano</p>
+                  <p className="text-[11px] font-black text-stone-500 uppercase">App creada por J.C. Tejedor</p>
                 </div>
-              )}
+                
+                {import.meta.env.VITE_GOOGLE_SHEETS_VIEW_URL && (
+                  <div className="flex justify-center">
+                    <a href={import.meta.env.VITE_GOOGLE_SHEETS_VIEW_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-tighter hover:bg-emerald-100 transition-colors border border-emerald-100">
+                      <FileText className="w-3 h-3" /> Ver Registro en Google Sheets
+                    </a>
+                  </div>
+                )}
+              </footer>
 
               {/* Hidden PDF content */}
               <div className="fixed left-[-9999px] top-0">
                 <div ref={reportRef} className="w-[800px] bg-white text-stone-900 p-12">
-                  <div id="pdf-section-data" className="space-y-8">
-                    <h1 className="text-3xl font-black">Resultado Orientación</h1>
-                    <div className="grid grid-cols-2 gap-8">
-                      <div><p className="text-xs font-bold text-stone-400">CORREDOR</p><p className="text-xl font-bold">{raceResult.userData.firstName} {raceResult.userData.lastName}</p></div>
-                      <div><p className="text-xs font-bold text-stone-400">RECORRIDO</p><p className="text-xl font-bold">{raceResult.routeName}</p></div>
-                      <div><p className="text-xs font-bold text-stone-400">PUNTUACIÓN</p><p className="text-3xl font-bold text-emerald-600">{raceResult.score.toFixed(1)}/10</p></div>
-                      <div><p className="text-xs font-bold text-stone-400">TIEMPO</p><p className="text-xl font-bold">{formatTime(raceResult.totalTime)}</p></div>
+                  <div id="pdf-section-data" className="space-y-10">
+                    {/* Header Section */}
+                    <div className="flex justify-between items-start border-b-2 border-stone-100 pb-8">
+                      <div>
+                        <h1 className="text-3xl font-black text-stone-800 tracking-tight">Recorridos del Orientación en Huerta Otea</h1>
+                        <p className="text-emerald-600 font-bold text-sm uppercase tracking-wider mt-1">Departamento de E.F. IES Lucía de Medrano</p>
+                        <p className="text-stone-400 text-[10px] italic mt-2">(App creada por Jose Carlos Tejedor)</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Fecha de Emisión</p>
+                        <p className="text-sm font-bold text-stone-700">{raceResult.date}</p>
+                      </div>
+                    </div>
+
+                    {/* Info Grids */}
+                    <div className="grid grid-cols-2 gap-12">
+                      {/* Datos del Corredor */}
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-2 border-b border-stone-100 pb-2">
+                          <User className="w-5 h-5 text-emerald-600" />
+                          <h2 className="text-xl font-black text-stone-800">Datos del Corredor</h2>
+                        </div>
+                        <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                          <div>
+                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Nombre Completo</p>
+                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.firstName} {raceResult.userData.lastName}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Edad</p>
+                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.age} años</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Curso</p>
+                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.course}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Grupo</p>
+                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.group}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Resumen de Carrera */}
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-2 border-b border-stone-100 pb-2">
+                          <Activity className="w-5 h-5 text-emerald-600" />
+                          <h2 className="text-xl font-black text-stone-800">Resumen de Carrera</h2>
+                        </div>
+                        <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                          <div>
+                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Recorrido</p>
+                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.routeName}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Tiempo Total</p>
+                            <p className="text-lg font-bold text-emerald-600 leading-tight">{formatTime(raceResult.totalTime)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Puntuación</p>
+                            <p className="text-2xl font-black text-emerald-600 leading-tight">{raceResult.score.toFixed(1)} / 10</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Escala de Borg</p>
+                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.borgScale} / 10</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Table Section */}
+                    <div className="space-y-4 pt-4">
+                      <h2 className="text-xl font-black text-stone-800 border-b border-stone-100 pb-2">Desglose de Balizas</h2>
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="bg-stone-50 text-[10px] font-black text-stone-400 uppercase tracking-widest">
+                            <th className="p-4">#</th>
+                            <th className="p-4">Descripción</th>
+                            <th className="p-4">Código Ingresado</th>
+                            <th className="p-4">Resultado</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-100">
+                          {raceResult.results.map((res, idx) => (
+                            <tr key={idx} className="text-sm">
+                              <td className="p-4 font-bold text-stone-400">{idx + 1}</td>
+                              <td className="p-4 font-medium text-stone-600">{res.description}</td>
+                              <td className="p-4 font-mono text-stone-500">{res.enteredCode || '-'}</td>
+                              <td className="p-4">
+                                <span className={cn(
+                                  "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter",
+                                  res.isCorrect ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                                )}>
+                                  {res.isCorrect ? 'Correcto' : 'Fallido'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                   <div id="pdf-section-map" className="mt-12">
