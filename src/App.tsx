@@ -198,6 +198,26 @@ export default function App() {
     pdf.save(`${userData.firstName}_${userData.lastName}.pdf`);
   };
 
+  const downloadRegistry = async () => {
+    try {
+      const response = await fetch('/api/results/export');
+      if (!response.ok) throw new Error('Error al descargar');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'registro_orientacion_huerta_otea.csv';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Error al descargar el registro. Inténtalo de nuevo.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-emerald-100">
       <header className="bg-white border-b border-stone-200 sticky top-0 z-50 px-4 py-3 flex items-center justify-between shadow-sm">
@@ -629,14 +649,13 @@ export default function App() {
 
               {/* Admin Export Button (Discreet) */}
               <div className="pt-4 flex justify-center">
-                <a 
-                  href="/api/results/export" 
-                  download 
+                <button 
+                  onClick={downloadRegistry}
                   className="text-[10px] text-stone-300 hover:text-stone-500 uppercase font-bold tracking-widest transition-colors flex items-center gap-1"
                 >
                   <FileText className="w-3 h-3" />
                   Descargar Registro Central (Excel)
-                </a>
+                </button>
               </div>
 
               {/* Hidden Report for PDF Generation */}
