@@ -54,24 +54,37 @@ async function startServer() {
     try {
       const results = db.prepare("SELECT * FROM race_results ORDER BY id DESC").all();
       
-      if (results.length === 0) {
-        return res.status(404).send("No hay registros todavía.");
-      }
-
-      // Create CSV content
-      const headers = ["ID", "Nombre", "Apellidos", "Curso", "Grupo", "Edad", "Recorrido", "Puntuación", "Tiempo (seg)", "Escala Borg", "Aciertos", "Fecha"];
+      // Headers for the Excel file
+      const headers = ["ID", "Nombre", "Apellidos", "Curso", "Grupo", "Edad", "Recorrido", "Puntuacion", "Tiempo (seg)", "Escala Borg", "Aciertos", "Fecha"];
+      
+      // Convert results to rows, handling possible commas in names
       const rows = results.map(r => [
-        r.id, r.firstName, r.lastName, r.course, r.groupName, r.age, r.routeName, r.score, r.totalTime, r.borgScale, r.correctCount, r.date
+        r.id,
+        `"${r.firstName}"`,
+        `"${r.lastName}"`,
+        `"${r.course}"`,
+        `"${r.groupName}"`,
+        r.age,
+        `"${r.routeName}"`,
+        r.score,
+        r.totalTime,
+        r.borgScale,
+        r.correctCount,
+        `"${r.date}"`
       ]);
 
-      const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+      // Join everything with semicolons (better for Spanish Excel)
+      const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
       
-      res.setHeader("Content-Type", "text/csv");
-      res.setHeader("Content-Disposition", "attachment; filename=registro_orientacion.csv");
-      res.send(csvContent);
+      // Use UTF-8 with BOM so Excel recognizes accents correctly
+      const BOM = "\uFEFF";
+      
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=registro_orientacion_huerta_otea.csv");
+      res.send(BOM + csvContent);
     } catch (error) {
       console.error("Error exporting results:", error);
-      res.status(500).send("Error al exportar.");
+      res.status(500).send("Error al exportar los datos.");
     }
   });
 
