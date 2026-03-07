@@ -31,6 +31,11 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Health check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", db: !!db });
+  });
+
   // API: Save Race Result
   app.post("/api/results", (req, res) => {
     const { firstName, lastName, course, groupName, age, routeName, score, totalTime, borgScale, correctCount, date } = req.body;
