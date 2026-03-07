@@ -1,5 +1,3 @@
-  );
-}
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -46,21 +44,9 @@ export default function App() {
   const [enteredCodes, setEnteredCodes] = useState<string[]>(Array(6).fill(''));
   const [borgScale, setBorgScale] = useState<number>(5);
   const [raceResult, setRaceResult] = useState<RaceResult | null>(null);
-  const [apiStatus, setApiStatus] = useState<'checking' | 'ok' | 'error'>('checking');
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
-
-  // Check API health on mount
-  useEffect(() => {
-    fetch('/api/health')
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'ok') setApiStatus('ok');
-        else setApiStatus('error');
-      })
-      .catch(() => setApiStatus('error'));
-  }, []);
 
   // Timer logic
   useEffect(() => {
@@ -133,27 +119,30 @@ export default function App() {
       date: new Date().toLocaleString(),
     };
 
-    // Save to registry
-    try {
-      fetch('/api/results', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          course: userData.course,
-          groupName: userData.group,
-          age: userData.age,
-          routeName: selectedRoute.name,
-          score,
-          totalTime,
-          borgScale,
-          correctCount: results.filter(r => r.isCorrect).length,
-          date: finalResult.date
-        })
-      });
-    } catch (e) {
-      console.error(e);
+    // Save to Google Sheets (if configured)
+    const googleSheetsUrl = import.meta.env.VITE_GOOGLE_SHEETS_URL;
+    if (googleSheetsUrl) {
+      try {
+        fetch(googleSheetsUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            course: userData.course,
+            groupName: userData.group,
+            age: userData.age,
+            routeName: selectedRoute.name,
+            score,
+            totalTime,
+            borgScale,
+            correctCount: results.filter(r => r.isCorrect).length
+          })
+        });
+      } catch (e) {
+        console.error("Error sending to Google Sheets:", e);
+      }
     }
 
     setRaceResult(finalResult);
@@ -210,16 +199,6 @@ export default function App() {
     addFooter(2, totalPages);
 
     pdf.save(`${userData.firstName}_${userData.lastName}.pdf`);
-  };
-
-  const downloadRegistry = () => {
-    // Using a form for the download is often more reliable in iframe environments
-    const form = document.createElement('form');
-    form.method = 'GET';
-    form.action = '/api/results/export';
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
   };
 
   return (
@@ -651,16 +630,20 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Admin Export Button (Discreet) */}
-              <div className="pt-4 flex justify-center">
-                <button 
-                  onClick={downloadRegistry}
-                  className="text-[10px] text-stone-300 hover:text-stone-500 uppercase font-bold tracking-widest transition-colors flex items-center gap-1"
-                >
-                  <FileText className="w-3 h-3" />
-                  Descargar Registro Central (Excel)
-                </button>
-              </div>
+              {/* Admin Link (Google Sheets) */}
+              {import.meta.env.VITE_GOOGLE_SHEETS_VIEW_URL && (
+                <div className="pt-4 flex justify-center">
+                  <a 
+                    href={import.meta.env.VITE_GOOGLE_SHEETS_VIEW_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-stone-300 hover:text-stone-500 uppercase font-bold tracking-widest transition-colors flex items-center gap-1"
+                  >
+                    <FileText className="w-3 h-3" />
+                    Ver Registro en Google Sheets
+                  </a>
+                </div>
+              )}
 
               {/* Hidden Report for PDF Generation */}
               <div className="fixed left-[-9999px] top-0">
@@ -808,4 +791,5 @@ export default function App() {
         </footer>
       )}
     </div>
- 
+  );
+}
