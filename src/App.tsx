@@ -360,12 +360,32 @@ export default function App() {
                 <p className="text-stone-500">¿Nivel de fatiga percibida?</p>
               </div>
               <div className="bg-white p-8 rounded-3xl border border-stone-200 shadow-sm space-y-8">
-                <input type="range" min="1" max="10" step="1" className="w-full h-3 bg-stone-100 rounded-lg appearance-none cursor-pointer accent-emerald-600" value={borgScale} onChange={(e) => setBorgScale(parseInt(e.target.value))} />
-                <div className="bg-emerald-50 p-4 rounded-2xl text-center">
-                  <span className="text-emerald-800 font-bold text-lg">Nivel {borgScale}</span>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="10" 
+                  step="1" 
+                  className={cn(
+                    "w-full h-3 bg-stone-100 rounded-lg appearance-none cursor-pointer transition-all",
+                    borgScale <= 3 ? "accent-emerald-500" : borgScale <= 7 ? "accent-amber-500" : "accent-red-500"
+                  )} 
+                  value={borgScale} 
+                  onChange={(e) => setBorgScale(parseInt(e.target.value))} 
+                />
+                <div className={cn(
+                  "p-6 rounded-2xl text-center border-2 transition-all duration-300",
+                  borgScale <= 3 ? "bg-emerald-50 border-emerald-200 text-emerald-700" : 
+                  borgScale <= 7 ? "bg-amber-50 border-amber-200 text-amber-700" : 
+                  "bg-red-50 border-red-200 text-red-700"
+                )}>
+                  <span className="block text-[10px] font-black uppercase tracking-widest mb-1 opacity-60">Esfuerzo Percibido</span>
+                  <span className="text-4xl font-black">{borgScale}</span>
+                  <p className="text-xs font-bold mt-2">
+                    {borgScale <= 3 ? 'Muy Suave / Suave' : borgScale <= 7 ? 'Moderado / Duro' : 'Muy Duro / Máximo'}
+                  </p>
                 </div>
               </div>
-              <button onClick={calculateResults} className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg">Ver Resultados</button>
+              <button onClick={calculateResults} className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">Ver Resultados</button>
             </motion.div>
           )}
 
@@ -522,7 +542,8 @@ export default function App() {
                       </table>
                     </div>
                   </div>
-                  <div id="pdf-section-map" className="mt-12">
+                  <div id="pdf-section-map" className="mt-12 space-y-4">
+                    <h2 className="text-xl font-black text-stone-800 border-b border-stone-100 pb-2">Mapa del recorrido</h2>
                     <img src={selectedRoute.mapUrl} alt="Mapa" className="w-full h-auto border-2 border-stone-200 rounded-xl" crossOrigin="anonymous" />
                   </div>
                 </div>
