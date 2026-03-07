@@ -119,6 +119,29 @@ export default function App() {
       date: new Date().toLocaleString(),
     };
 
+    // Save to registry
+    try {
+      fetch('/api/results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          course: userData.course,
+          groupName: userData.group,
+          age: userData.age,
+          routeName: selectedRoute.name,
+          score,
+          totalTime,
+          borgScale,
+          correctCount: results.filter(r => r.isCorrect).length,
+          date: finalResult.date
+        })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
     setRaceResult(finalResult);
     setStep('RESULTS');
   };
@@ -172,7 +195,7 @@ export default function App() {
     pdf.setPage(2);
     addFooter(2, totalPages);
 
-    pdf.save(`Reporte_Orientacion_${userData.firstName}_${userData.lastName}.pdf`);
+    pdf.save(`${userData.firstName}_${userData.lastName}.pdf`);
   };
 
   return (
@@ -602,6 +625,18 @@ export default function App() {
                 >
                   Reiniciar
                 </button>
+              </div>
+
+              {/* Admin Export Button (Discreet) */}
+              <div className="pt-4 flex justify-center">
+                <a 
+                  href="/api/results/export" 
+                  download 
+                  className="text-[10px] text-stone-300 hover:text-stone-500 uppercase font-bold tracking-widest transition-colors flex items-center gap-1"
+                >
+                  <FileText className="w-3 h-3" />
+                  Descargar Registro Central (Excel)
+                </a>
               </div>
 
               {/* Hidden Report for PDF Generation */}
