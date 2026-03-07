@@ -256,4 +256,96 @@ export default function App() {
                 ))}
               </div>
               {selectedRoute && <button onClick={handleStartRace} className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2"><Play className="w-5 h-5 fill-current" /> Comenzar Carrera</button>}
-            </motion.div>\n          )}\n\n          {step === 'RACE' && selectedRoute && (\n            <motion.div key=\"race\" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className=\"space-y-4\">\n              <div className=\"bg-stone-200 rounded-2xl overflow-hidden border border-stone-300 h-[50vh] relative\">\n                <TransformWrapper initialScale={1} minScale={0.5} maxScale={4} centerOnInit={true}>\n                  <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>\n                    <img src={selectedRoute.mapUrl} alt=\"Mapa\" className=\"w-full h-full object-contain bg-white\" referrerPolicy=\"no-referrer\" crossOrigin=\"anonymous\" />\n                  </TransformComponent>\n                </TransformWrapper>\n              </div>\n\n              <div className=\"bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4\">\n                <div className=\"flex items-center justify-between\">\n                  <span className=\"text-xs font-bold uppercase text-emerald-600\">Baliza {currentBalizaIndex + 1} de 6</span>\n                </div>\n                <div className=\"flex gap-2\">\n                  <input type=\"text\" autoFocus className=\"flex-1 px-4 py-4 rounded-xl border-2 border-stone-200 focus:border-emerald-500 outline-none text-2xl font-bold text-center\" placeholder=\"---\" value={enteredCodes[currentBalizaIndex]} onChange={(e) => { const newCodes = [...enteredCodes]; newCodes[currentBalizaIndex] = e.target.value; setEnteredCodes(newCodes); }} />\n                  {currentBalizaIndex < 5 ? (\n                    <button onClick={() => handleBalizaSubmit(enteredCodes[currentBalizaIndex])} disabled={!enteredCodes[currentBalizaIndex]} className=\"bg-emerald-600 disabled:bg-stone-200 text-white px-6 rounded-xl font-bold\">Sig.</button>\n                  ) : (\n                    <button onClick={handleFinishRace} disabled={!enteredCodes[currentBalizaIndex]} className=\"bg-red-600 disabled:bg-stone-200 text-white px-6 rounded-xl font-bold\">Fin</button>\n                  )}\n                </div>\n              </div>\n            </motion.div>\n          )}\n\n          {step === 'BORG' && (\n            <motion.div key=\"borg\" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className=\"space-y-8 py-4\">\n              <div className=\"text-center space-y-2\">\n                <h2 className=\"text-2xl font-bold text-stone-800\">Escala de Borg</h2>\n                <p className=\"text-stone-500\">¿Nivel de fatiga percibida?</p>\n              </div>\n              <div className=\"bg-white p-8 rounded-3xl border border-stone-200 shadow-sm space-y-8\">\n                <input type=\"range\" min=\"1\" max=\"10\" step=\"1\" className=\"w-full h-3 bg-stone-100 rounded-lg appearance-none cursor-pointer accent-emerald-600\" value={borgScale} onChange={(e) => setBorgScale(parseInt(e.target.value))} />\n                <div className=\"bg-emerald-50 p-4 rounded-2xl text-center\">\n                  <span className=\"text-emerald-800 font-bold text-lg\">Nivel {borgScale}</span>\n                </div>\n              </div>\n              <button onClick={calculateResults} className=\"w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg\">Ver Resultados</button>\n            </motion.div>\n          )}\n\n          {step === 'RESULTS' && raceResult && (\n            <motion.div key=\"results\" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className=\"space-y-6\">\n              <div className=\"bg-white p-8 rounded-3xl border border-stone-200 shadow-sm text-center space-y-4\">\n                <h2 className=\"text-stone-500 font-bold uppercase text-xs\">Puntuación</h2>\n                <div className=\"text-6xl font-black text-emerald-600\">{raceResult.score.toFixed(1)}<span className=\"text-2xl text-stone-300\">/10</span></div>\n                <div className=\"flex justify-center gap-8 pt-4 border-t border-stone-100\">\n                  <div><p className=\"text-xs font-bold text-stone-400\">TIEMPO</p><p className=\"font-bold\">{formatTime(raceResult.totalTime)}</p></div>\n                  <div><p className=\"text-xs font-bold text-stone-400\">ACIERTOS</p><p className=\"font-bold\">{raceResult.results.filter(r => r.isCorrect).length}/6</p></div>\n                </div>\n              </div>\n\n              <div className=\"flex gap-3\">\n                <button onClick={generatePDF} className=\"flex-1 bg-stone-800 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2\"><FileText className=\"w-5 h-5\" /> PDF</button>\n                <button onClick={() => window.location.reload()} className=\"bg-stone-100 text-stone-600 font-bold px-6 rounded-2xl\">Reiniciar</button>\n              </div>\n\n              {import.meta.env.VITE_GOOGLE_SHEETS_VIEW_URL && (\n                <div className=\"pt-4 flex justify-center\">\n                  <a href={import.meta.env.VITE_GOOGLE_SHEETS_VIEW_URL} target=\"_blank\" rel=\"noopener noreferrer\" className=\"text-[10px] text-stone-300 hover:text-stone-500 uppercase font-bold flex items-center gap-1\">\n                    <FileText className=\"w-3 h-3\" /> Ver Registro en Google Sheets\n                  </a>\n                </div>\n              )}\n\n              {/* Hidden PDF content */}\n              <div className=\"fixed left-[-9999px] top-0\">\n                <div ref={reportRef} className=\"w-[800px] bg-white text-stone-900 p-12\">\n                  <div id=\"pdf-section-data\" className=\"space-y-8\">\n                    <h1 className=\"text-3xl font-black\">Resultado Orientación</h1>\n                    <div className=\"grid grid-cols-2 gap-8\">\n                      <div><p className=\"text-xs font-bold text-stone-400\">CORREDOR</p><p className=\"text-xl font-bold\">{raceResult.userData.firstName} {raceResult.userData.lastName}</p></div>\n                      <div><p className=\"text-xs font-bold text-stone-400\">RECORRIDO</p><p className=\"text-xl font-bold\">{raceResult.routeName}</p></div>\n                      <div><p className=\"text-xs font-bold text-stone-400\">PUNTUACIÓN</p><p className=\"text-3xl font-bold text-emerald-600\">{raceResult.score.toFixed(1)}/10</p></div>\n                      <div><p className=\"text-xs font-bold text-stone-400\">TIEMPO</p><p className=\"text-xl font-bold\">{formatTime(raceResult.totalTime)}</p></div>\n                    </div>\n                  </div>\n                  <div id=\"pdf-section-map\" className=\"mt-12\">\n                    <img src={selectedRoute.mapUrl} alt=\"Mapa\" className=\"w-full h-auto border-2 border-stone-200 rounded-xl\" crossOrigin=\"anonymous\" />\n                  </div>\n                </div>\n              </div>\n            </motion.div>\n          )}\n        </AnimatePresence>\n      </main>\n    </div>\n  );\n}\n
+            </motion.div>
+          )}
+
+          {step === 'RACE' && selectedRoute && (
+            <motion.div key="race" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <div className="bg-stone-200 rounded-2xl overflow-hidden border border-stone-300 h-[50vh] relative">
+                <TransformWrapper initialScale={1} minScale={0.5} maxScale={4} centerOnInit={true}>
+                  <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
+                    <img src={selectedRoute.mapUrl} alt="Mapa" className="w-full h-full object-contain bg-white" referrerPolicy="no-referrer" crossOrigin="anonymous" />
+                  </TransformComponent>
+                </TransformWrapper>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase text-emerald-600">Baliza {currentBalizaIndex + 1} de 6</span>
+                </div>
+                <div className="flex gap-2">
+                  <input type="text" autoFocus className="flex-1 px-4 py-4 rounded-xl border-2 border-stone-200 focus:border-emerald-500 outline-none text-2xl font-bold text-center" placeholder="---" value={enteredCodes[currentBalizaIndex]} onChange={(e) => { const newCodes = [...enteredCodes]; newCodes[currentBalizaIndex] = e.target.value; setEnteredCodes(newCodes); }} />
+                  {currentBalizaIndex < 5 ? (
+                    <button onClick={() => handleBalizaSubmit(enteredCodes[currentBalizaIndex])} disabled={!enteredCodes[currentBalizaIndex]} className="bg-emerald-600 disabled:bg-stone-200 text-white px-6 rounded-xl font-bold">Sig.</button>
+                  ) : (
+                    <button onClick={handleFinishRace} disabled={!enteredCodes[currentBalizaIndex]} className="bg-red-600 disabled:bg-stone-200 text-white px-6 rounded-xl font-bold">Fin</button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {step === 'BORG' && (
+            <motion.div key="borg" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-8 py-4">
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-bold text-stone-800">Escala de Borg</h2>
+                <p className="text-stone-500">¿Nivel de fatiga percibida?</p>
+              </div>
+              <div className="bg-white p-8 rounded-3xl border border-stone-200 shadow-sm space-y-8">
+                <input type="range" min="1" max="10" step="1" className="w-full h-3 bg-stone-100 rounded-lg appearance-none cursor-pointer accent-emerald-600" value={borgScale} onChange={(e) => setBorgScale(parseInt(e.target.value))} />
+                <div className="bg-emerald-50 p-4 rounded-2xl text-center">
+                  <span className="text-emerald-800 font-bold text-lg">Nivel {borgScale}</span>
+                </div>
+              </div>
+              <button onClick={calculateResults} className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg">Ver Resultados</button>
+            </motion.div>
+          )}
+
+          {step === 'RESULTS' && raceResult && (
+            <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <div className="bg-white p-8 rounded-3xl border border-stone-200 shadow-sm text-center space-y-4">
+                <h2 className="text-stone-500 font-bold uppercase text-xs">Puntuación</h2>
+                <div className="text-6xl font-black text-emerald-600">{raceResult.score.toFixed(1)}<span className="text-2xl text-stone-300">/10</span></div>
+                <div className="flex justify-center gap-8 pt-4 border-t border-stone-100">
+                  <div><p className="text-xs font-bold text-stone-400">TIEMPO</p><p className="font-bold">{formatTime(raceResult.totalTime)}</p></div>
+                  <div><p className="text-xs font-bold text-stone-400">ACIERTOS</p><p className="font-bold">{raceResult.results.filter(r => r.isCorrect).length}/6</p></div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={generatePDF} className="flex-1 bg-stone-800 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2"><FileText className="w-5 h-5" /> PDF</button>
+                <button onClick={() => window.location.reload()} className="bg-stone-100 text-stone-600 font-bold px-6 rounded-2xl">Reiniciar</button>
+              </div>
+
+              {import.meta.env.VITE_GOOGLE_SHEETS_VIEW_URL && (
+                <div className="pt-4 flex justify-center">
+                  <a href={import.meta.env.VITE_GOOGLE_SHEETS_VIEW_URL} target="_blank" rel="noopener noreferrer" className="text-[10px] text-stone-300 hover:text-stone-500 uppercase font-bold flex items-center gap-1">
+                    <FileText className="w-3 h-3" /> Ver Registro en Google Sheets
+                  </a>
+                </div>
+              )}
+
+              {/* Hidden PDF content */}
+              <div className="fixed left-[-9999px] top-0">
+                <div ref={reportRef} className="w-[800px] bg-white text-stone-900 p-12">
+                  <div id="pdf-section-data" className="space-y-8">
+                    <h1 className="text-3xl font-black">Resultado Orientación</h1>
+                    <div className="grid grid-cols-2 gap-8">
+                      <div><p className="text-xs font-bold text-stone-400">CORREDOR</p><p className="text-xl font-bold">{raceResult.userData.firstName} {raceResult.userData.lastName}</p></div>
+                      <div><p className="text-xs font-bold text-stone-400">RECORRIDO</p><p className="text-xl font-bold">{raceResult.routeName}</p></div>
+                      <div><p className="text-xs font-bold text-stone-400">PUNTUACIÓN</p><p className="text-3xl font-bold text-emerald-600">{raceResult.score.toFixed(1)}/10</p></div>
+                      <div><p className="text-xs font-bold text-stone-400">TIEMPO</p><p className="text-xl font-bold">{formatTime(raceResult.totalTime)}</p></div>
+                    </div>
+                  </div>
+                  <div id="pdf-section-map" className="mt-12">
+                    <img src={selectedRoute.mapUrl} alt="Mapa" className="w-full h-auto border-2 border-stone-200 rounded-xl" crossOrigin="anonymous" />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+    </div>
+  );
+}
