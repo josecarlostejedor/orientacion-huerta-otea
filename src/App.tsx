@@ -1,3 +1,5 @@
+  );
+}
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -44,9 +46,21 @@ export default function App() {
   const [enteredCodes, setEnteredCodes] = useState<string[]>(Array(6).fill(''));
   const [borgScale, setBorgScale] = useState<number>(5);
   const [raceResult, setRaceResult] = useState<RaceResult | null>(null);
+  const [apiStatus, setApiStatus] = useState<'checking' | 'ok' | 'error'>('checking');
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
+
+  // Check API health on mount
+  useEffect(() => {
+    fetch('/api/health')
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'ok') setApiStatus('ok');
+        else setApiStatus('error');
+      })
+      .catch(() => setApiStatus('error'));
+  }, []);
 
   // Timer logic
   useEffect(() => {
@@ -198,24 +212,14 @@ export default function App() {
     pdf.save(`${userData.firstName}_${userData.lastName}.pdf`);
   };
 
-  const downloadRegistry = async () => {
-    try {
-      const response = await fetch('/api/results/export');
-      if (!response.ok) throw new Error('Error al descargar');
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'registro_orientacion_huerta_otea.csv';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Download error:', error);
-      alert('Error al descargar el registro. Inténtalo de nuevo.');
-    }
+  const downloadRegistry = () => {
+    // Using a form for the download is often more reliable in iframe environments
+    const form = document.createElement('form');
+    form.method = 'GET';
+    form.action = '/api/results/export';
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
   };
 
   return (
@@ -804,5 +808,4 @@ export default function App() {
         </footer>
       )}
     </div>
-  );
-}
+ 
