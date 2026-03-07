@@ -51,8 +51,10 @@ async function startServer() {
 
   // API: Export Results to CSV (Excel compatible)
   app.get("/api/results/export", (req, res) => {
+    console.log("Petición de exportación recibida");
     try {
       const results = db.prepare("SELECT * FROM race_results ORDER BY id DESC").all();
+      console.log(`Exportando ${results.length} registros`);
       
       // Headers for the Excel file
       const headers = ["ID", "Nombre", "Apellidos", "Curso", "Grupo", "Edad", "Recorrido", "Puntuacion", "Tiempo (seg)", "Escala Borg", "Aciertos", "Fecha"];
