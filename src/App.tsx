@@ -150,42 +150,63 @@ export default function App() {
 
   const generatePDF = async () => {
     if (!reportRef.current) return;
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    const margin = 10;
+    
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
 
-    const addFooter = (pageNum: number, totalPages: number) => {
-      pdf.setFontSize(8);
-      pdf.setTextColor(150, 150, 150);
-      pdf.text("IES Lucía de Medrano - Departamento de E.F.", pdfWidth / 2, pdfHeight - 10, { align: 'center' });
-      pdf.text(`Página ${pageNum} de ${totalPages}`, pdfWidth - 20, pdfHeight - 10);
-    };
+      const addFooter = (pageNum: number, totalPages: number) => {
+        pdf.setPage(pageNum);
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text("IES Lucía de Medrano - Departamento de E.F.", pdfWidth / 2, pdfHeight - 10, { align: 'center' });
+        pdf.text(`Página ${pageNum} de ${totalPages}`, pdfWidth - 20, pdfHeight - 10);
+      };
 
-    const page1Element = document.getElementById('pdf-section-data');
-    if (page1Element) {
-      const canvas1 = await html2canvas(page1Element, { scale: 2, useCORS: true });
-      const imgData1 = canvas1.toDataURL('image/png');
-      const displayWidth1 = pdfWidth - (margin * 2);
-      const displayHeight1 = (canvas1.height * displayWidth1) / canvas1.width;
-      pdf.addImage(imgData1, 'PNG', margin, margin, displayWidth1, displayHeight1);
+      // Capturar página 1: Datos y Resultados
+      const page1Element = document.getElementById('pdf-section-data');
+      if (page1Element) {
+        const canvas1 = await html2canvas(page1Element, { 
+          scale: 2, 
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false
+        });
+        const imgData1 = canvas1.toDataURL('image/png');
+        const displayWidth1 = pdfWidth - (margin * 2);
+        const displayHeight1 = (canvas1.height * displayWidth1) / canvas1.width;
+        pdf.addImage(imgData1, 'PNG', margin, margin, displayWidth1, displayHeight1);
+      }
+
+      // Capturar página 2: Mapa
+      const page2Element = document.getElementById('pdf-section-map');
+      if (page2Element) {
+        pdf.addPage();
+        const canvas2 = await html2canvas(page2Element, { 
+          scale: 2, 
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false
+        });
+        const imgData2 = canvas2.toDataURL('image/png');
+        const displayWidth2 = pdfWidth - (margin * 2);
+        const displayHeight2 = (canvas2.height * displayWidth2) / canvas2.width;
+        const yPos = (pdfHeight - displayHeight2) / 2;
+        pdf.addImage(imgData2, 'PNG', margin, yPos, displayWidth2, displayHeight2);
+      }
+
+      // Añadir pies de página a todas las páginas
+      const totalPages = pdf.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        addFooter(i, totalPages);
+      }
+
+      pdf.save(`Resultado_${userData.firstName || 'Carrera'}.pdf`);
+    } catch (error) {
+      console.error("Error al generar el PDF:", error);
     }
-
-    pdf.addPage();
-    const page2Element = document.getElementById('pdf-section-map');
-    if (page2Element) {
-      const canvas2 = await html2canvas(page2Element, { scale: 2, useCORS: true });
-      const imgData2 = canvas2.toDataURL('image/png');
-      const displayWidth2 = pdfWidth - (margin * 2);
-      const displayHeight2 = (canvas2.height * displayWidth2) / canvas2.width;
-      const yPos = (pdfHeight - displayHeight2) / 2;
-      pdf.addImage(imgData2, 'PNG', margin, yPos, displayWidth2, displayHeight2);
-    }
-
-    addFooter(1, 2);
-    pdf.setPage(1); addFooter(1, 2);
-    pdf.setPage(2); addFooter(2, 2);
-    pdf.save(`Resultado_${userData.firstName}.pdf`);
   };
 
   return (
@@ -439,8 +460,8 @@ export default function App() {
                 )}
               </footer>
 
-              {/* Hidden PDF content */}
-              <div className="absolute top-0 left-0 -z-50 overflow-hidden h-0 w-0">
+              {/* Hidden PDF content - Definitive off-screen fix */}
+              <div className="fixed top-0 left-[-9999px] pointer-events-none">
                 <div ref={reportRef} className="w-[800px] bg-white text-stone-900 p-12">
                   <div id="pdf-section-data" className="space-y-10">
                     {/* Header Section */}
