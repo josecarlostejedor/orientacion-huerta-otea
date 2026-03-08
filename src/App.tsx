@@ -19,7 +19,7 @@ import {
   Activity
 } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { jsPDF } from 'jspdf';
+import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 import { ROUTES, COURSES, GROUPS, Route } from './constants';
@@ -440,7 +440,7 @@ export default function App() {
               </footer>
 
               {/* Hidden PDF content */}
-              <div className="fixed left-[-9999px] top-0">
+              <div className="absolute opacity-0 pointer-events-none top-0 left-0" style={{ zIndex: -1 }}>
                 <div ref={reportRef} className="w-[800px] bg-white text-stone-900 p-12">
                   <div id="pdf-section-data" className="space-y-10">
                     {/* Header Section */}
