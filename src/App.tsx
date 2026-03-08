@@ -152,17 +152,24 @@ export default function App() {
     if (!reportRef.current) return;
     
     try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      // Usamos la configuración más compatible de jsPDF
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        putOnlyUsedFonts: true
+      });
+      
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
 
-      const addFooter = (pageNum: number, totalPages: number) => {
-        pdf.setPage(pageNum);
+      const addFooter = (pNum: number, tNum: number) => {
+        pdf.setPage(pNum);
         pdf.setFontSize(8);
         pdf.setTextColor(150, 150, 150);
         pdf.text("IES Lucía de Medrano - Departamento de E.F.", pdfWidth / 2, pdfHeight - 10, { align: 'center' });
-        pdf.text(`Página ${pageNum} de ${totalPages}`, pdfWidth - 20, pdfHeight - 10);
+        pdf.text(`Página ${pNum} de ${tNum}`, pdfWidth - 20, pdfHeight - 10);
       };
 
       // Capturar página 1: Datos y Resultados
@@ -171,8 +178,8 @@ export default function App() {
         const canvas1 = await html2canvas(page1Element, { 
           scale: 2, 
           useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false
+          allowTaint: true,
+          backgroundColor: '#ffffff'
         });
         const imgData1 = canvas1.toDataURL('image/png');
         const displayWidth1 = pdfWidth - (margin * 2);
@@ -187,8 +194,8 @@ export default function App() {
         const canvas2 = await html2canvas(page2Element, { 
           scale: 2, 
           useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false
+          allowTaint: true,
+          backgroundColor: '#ffffff'
         });
         const imgData2 = canvas2.toDataURL('image/png');
         const displayWidth2 = pdfWidth - (margin * 2);
@@ -197,34 +204,33 @@ export default function App() {
         pdf.addImage(imgData2, 'PNG', margin, yPos, displayWidth2, displayHeight2);
       }
 
-      // Añadir pies de página a todas las páginas
-      const totalPages = pdf.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        addFooter(i, totalPages);
+      // Añadir pies de página
+      const total = pdf.getNumberOfPages();
+      for (let i = 1; i <= total; i++) {
+        addFooter(i, total);
       }
 
-      // Solución definitiva para móviles: Crear un enlace de descarga manual
+      // Método de descarga universal (Blob + Link) - El más compatible en 2024
       const fileName = `Resultado_${userData.firstName || 'Carrera'}.pdf`;
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // En móviles, a veces es más fiable generar el blob y abrirlo/descargarlo
-        const blob = pdf.output('blob');
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        }, 100);
-      } else {
-        // En PC el método estándar funciona perfectamente
-        pdf.save(fileName);
-      }
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.style.visibility = 'hidden';
+      link.style.position = 'absolute';
+      document.body.appendChild(link);
+      link.click();
+      
+      // Limpieza
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 200);
+
     } catch (error) {
-      console.error("Error al generar el PDF:", error);
+      console.error("Error crítico PDF:", error);
+      alert("No se pudo generar el PDF. Por favor, asegúrate de que el mapa se haya cargado correctamente.");
     }
   };
 
@@ -480,7 +486,7 @@ export default function App() {
               </footer>
 
               {/* Hidden PDF content - Definitive off-screen fix */}
-              <div className="fixed top-0 left-[-9999px] pointer-events-none">
+              <div style={{ position: 'absolute', top: '-10000px', left: '0', width: '800px', opacity: 0, pointerEvents: 'none', zIndex: -100 }}>
                 <div ref={reportRef} className="w-[800px] bg-white text-stone-900 p-12">
                   <div id="pdf-section-data" className="space-y-10">
                     {/* Header Section */}
