@@ -203,7 +203,26 @@ export default function App() {
         addFooter(i, totalPages);
       }
 
-      pdf.save(`Resultado_${userData.firstName || 'Carrera'}.pdf`);
+      // Solución definitiva para móviles: Crear un enlace de descarga manual
+      const fileName = `Resultado_${userData.firstName || 'Carrera'}.pdf`;
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // En móviles, a veces es más fiable generar el blob y abrirlo/descargarlo
+        const blob = pdf.output('blob');
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }, 100);
+      } else {
+        // En PC el método estándar funciona perfectamente
+        pdf.save(fileName);
+      }
     } catch (error) {
       console.error("Error al generar el PDF:", error);
     }
