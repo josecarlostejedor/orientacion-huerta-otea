@@ -149,80 +149,92 @@ export default function App() {
   };
 
   const generatePDF = async () => {
-    if (!reportRef.current || !selectedRoute) return;
+    if (!selectedRoute || !raceResult) return;
     
     try {
-      // 1. Forzar recarga de la imagen del mapa con cache-buster para asegurar CORS
-      const reportMapImg = document.getElementById('pdf-map-img') as HTMLImageElement;
-      if (reportMapImg) {
-        reportMapImg.src = `${selectedRoute.mapUrl}?t=${Date.now()}`;
-      }
-
-      // 2. Esperar a que todas las imágenes en el informe estén cargadas
-      const images = Array.from(reportRef.current.getElementsByTagName('img')) as HTMLImageElement[];
-      await Promise.all(images.map(img => {
-        if (img.complete) return Promise.resolve();
-        return new Promise(resolve => {
-          img.onload = resolve;
-          img.onerror = resolve;
-        });
-      }));
-      
-      // 3. Pequeño delay de seguridad para el renderizado del DOM oculto
-      await new Promise(resolve => setTimeout(resolve, 500));
-
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
 
-      // Configuración optimizada para html2canvas
-      const h2cOptions = {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: 800
-      };
-
-      // Página 1: Datos y Resultados
+      // 1. Capturar Sección de Datos (Texto y Tablas) con html2canvas
       const dataSection = document.getElementById('pdf-section-data');
       if (dataSection) {
-        const canvas = await html2canvas(dataSection, h2cOptions);
-        const imgData = canvas.toDataURL('image/png');
+        const canvas = await html2canvas(dataSection, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          logging: false,
+          width: 800,
+          windowWidth: 800
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const imgW = pdfWidth - (margin * 2);
         const imgH = (canvas.height * imgW) / canvas.width;
-        pdf.addImage(imgData, 'PNG', margin, margin, imgW, imgH);
+        pdf.addImage(imgData, 'JPEG', margin, margin, imgW, imgH);
       }
 
-      // Página 2: Mapa
-      const mapSection = document.getElementById('pdf-section-map');
-      if (mapSection) {
+      // 2. Añadir Mapa Directamente (Solución definitiva para CORS y Móvil)
+      // Evitamos html2canvas para la imagen externa, lo que previene errores de "tainted canvas"
+      try {
+        const response = await fetch(selectedRoute.mapUrl);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const blob = await response.blob();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
         pdf.addPage();
-        const canvas = await html2canvas(mapSection, h2cOptions);
-        const imgData = canvas.toDataURL('image/png');
+        const imgProps = pdf.getImageProperties(base64);
         const imgW = pdfWidth - (margin * 2);
-        const imgH = (canvas.height * imgW) / canvas.width;
-        const yPos = Math.max(margin, (pdfHeight - imgH) / 2);
-        pdf.addImage(imgData, 'PNG', margin, yPos, imgW, imgH);
+        const imgH = (imgProps.height * imgW) / imgProps.width;
+        
+        // Si la imagen es muy alta, ajustamos para que quepa en la página
+        let finalH = imgH;
+        let finalW = imgW;
+        if (imgH > pdfHeight - (margin * 2)) {
+          finalH = pdfHeight - (margin * 2);
+          finalW = (imgProps.width * finalH) / imgProps.height;
+        }
+        
+        const xPos = (pdfWidth - finalW) / 2;
+        const yPos = (pdfHeight - finalH) / 2;
+        
+        pdf.addImage(base64, 'JPEG', xPos, yPos, finalW, finalH);
+      } catch (mapError) {
+        console.error("No se pudo añadir el mapa al PDF:", mapError);
+        // Continuamos para que al menos se descargue la parte de datos
       }
 
-      // Pies de página
-      const total = pdf.getNumberOfPages();
-      for (let i = 1; i <= total; i++) {
+      // 3. Añadir pies de página
+      const totalPages = pdf.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
         pdf.setFontSize(8);
         pdf.setTextColor(150, 150, 150);
         pdf.text("IES Lucía de Medrano - Departamento de E.F.", pdfWidth / 2, pdfHeight - 10, { align: 'center' });
-        pdf.text(`Página ${i} de ${total}`, pdfWidth - 20, pdfHeight - 10);
+        pdf.text(`Página ${i} de ${totalPages}`, pdfWidth - 20, pdfHeight - 10);
       }
 
       const fileName = `Resultado_${userData.firstName || 'Carrera'}.pdf`;
-      pdf.save(fileName);
+      
+      // Método de descarga robusto para PC y Móvil
+      const pdfBlob = pdf.output('blob');
+      const blobURL = URL.createObjectURL(pdfBlob);
+      
+      const downloadLink = document.createElement('a');
+      downloadLink.href = blobURL;
+      downloadLink.download = fileName;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      
+      setTimeout(() => URL.revokeObjectURL(blobURL), 2000);
 
     } catch (error) {
-      console.error("Error PDF:", error);
+      console.error("Error crítico al generar PDF:", error);
       alert("Error al generar el PDF. Por favor, inténtalo de nuevo.");
     }
   };
@@ -478,120 +490,123 @@ export default function App() {
                 )}
               </footer>
 
-              {/* Hidden PDF content - Definitive off-screen fix */}
-              <div style={{ position: 'absolute', left: '-9999px', top: '0', width: '800px', background: 'white', visibility: 'visible', pointerEvents: 'none', zIndex: -1000 }}>
-                <div ref={reportRef} className="w-[800px] bg-white text-stone-900 p-12">
-                  <div id="pdf-section-data" className="space-y-10">
-                    {/* Header Section */}
-                    <div className="flex justify-between items-start border-b-2 border-stone-100 pb-8">
-                      <div>
-                        <h1 className="text-3xl font-black text-stone-800 tracking-tight">Recorridos del Orientación en Huerta Otea</h1>
-                        <p className="text-emerald-600 font-bold text-sm uppercase tracking-wider mt-1">Departamento de E.F. IES Lucía de Medrano</p>
-                        <p className="text-stone-400 text-[10px] italic mt-2">(App creada por Jose Carlos Tejedor)</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Fecha de Emisión</p>
-                        <p className="text-sm font-bold text-stone-700">{raceResult.date}</p>
-                      </div>
-                    </div>
-
-                    {/* Info Grids */}
-                    <div className="grid grid-cols-2 gap-12">
-                      {/* Datos del Corredor */}
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-2 border-b border-stone-100 pb-2">
-                          <User className="w-5 h-5 text-emerald-600" />
-                          <h2 className="text-xl font-black text-stone-800">Datos del Corredor</h2>
-                        </div>
-                        <div className="grid grid-cols-2 gap-y-6 gap-x-4">
-                          <div>
-                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Nombre Completo</p>
-                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.firstName} {raceResult.userData.lastName}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Edad</p>
-                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.age} años</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Curso</p>
-                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.course}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Grupo</p>
-                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.group}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Resumen de Carrera */}
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-2 border-b border-stone-100 pb-2">
-                          <Activity className="w-5 h-5 text-emerald-600" />
-                          <h2 className="text-xl font-black text-stone-800">Resumen de Carrera</h2>
-                        </div>
-                        <div className="grid grid-cols-2 gap-y-6 gap-x-4">
-                          <div>
-                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Recorrido</p>
-                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.routeName}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Tiempo Total</p>
-                            <p className="text-lg font-bold text-emerald-600 leading-tight">{formatTime(raceResult.totalTime)}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Puntuación</p>
-                            <p className="text-2xl font-black text-emerald-600 leading-tight">{raceResult.score.toFixed(1)} / 10</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Escala de Borg</p>
-                            <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.borgScale} / 10</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Table Section */}
-                    <div className="space-y-4 pt-4">
-                      <h2 className="text-xl font-black text-stone-800 border-b border-stone-100 pb-2">Desglose de Balizas</h2>
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="bg-stone-50 text-[10px] font-black text-stone-400 uppercase tracking-widest">
-                            <th className="p-4">#</th>
-                            <th className="p-4">Descripción</th>
-                            <th className="p-4">Código Ingresado</th>
-                            <th className="p-4">Resultado</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-stone-100">
-                          {raceResult.results.map((res, idx) => (
-                            <tr key={idx} className="text-sm">
-                              <td className="p-4 font-bold text-stone-400">{idx + 1}</td>
-                              <td className="p-4 font-medium text-stone-600">{res.description}</td>
-                              <td className="p-4 font-mono text-stone-500">{res.enteredCode || '-'}</td>
-                              <td className="p-4">
-                                <span className={cn(
-                                  "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter",
-                                  res.isCorrect ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
-                                )}>
-                                  {res.isCorrect ? 'Correcto' : 'Fallido'}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  <div id="pdf-section-map" className="mt-12 space-y-4">
-                    <h2 className="text-xl font-black text-stone-800 border-b border-stone-100 pb-2">Mapa del recorrido</h2>
-                    <img id="pdf-map-img" src={selectedRoute.mapUrl} alt="Mapa" className="w-full h-auto border-2 border-stone-200 rounded-xl" crossOrigin="anonymous" />
-                  </div>
-                </div>
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
+
+      {/* Hidden PDF content - Definitive off-screen fix outside main flow to avoid animation interference */}
+      {raceResult && selectedRoute && (
+        <div style={{ position: 'fixed', left: '-9999px', top: '0', width: '800px', background: 'white', visibility: 'visible', pointerEvents: 'none', zIndex: -1000 }}>
+          <div ref={reportRef} className="w-[800px] bg-white text-stone-900 p-12">
+            <div id="pdf-section-data" className="space-y-10">
+              {/* Header Section */}
+              <div className="flex justify-between items-start border-b-2 border-stone-100 pb-8">
+                <div>
+                  <h1 className="text-3xl font-black text-stone-800 tracking-tight">Recorridos del Orientación en Huerta Otea</h1>
+                  <p className="text-emerald-600 font-bold text-sm uppercase tracking-wider mt-1">Departamento de E.F. IES Lucía de Medrano</p>
+                  <p className="text-stone-400 text-[10px] italic mt-2">(App creada por Jose Carlos Tejedor)</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Fecha de Emisión</p>
+                  <p className="text-sm font-bold text-stone-700">{raceResult.date}</p>
+                </div>
+              </div>
+
+              {/* Info Grids */}
+              <div className="grid grid-cols-2 gap-12">
+                {/* Datos del Corredor */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 border-b border-stone-100 pb-2">
+                    <User className="w-5 h-5 text-emerald-600" />
+                    <h2 className="text-xl font-black text-stone-800">Datos del Corredor</h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                    <div>
+                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Nombre Completo</p>
+                      <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.firstName} {raceResult.userData.lastName}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Edad</p>
+                      <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.age} años</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Curso</p>
+                      <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.course}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Grupo</p>
+                      <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.userData.group}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Resumen de Carrera */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 border-b border-stone-100 pb-2">
+                    <Activity className="w-5 h-5 text-emerald-600" />
+                    <h2 className="text-xl font-black text-stone-800">Resumen de Carrera</h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                    <div>
+                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Recorrido</p>
+                      <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.routeName}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Tiempo Total</p>
+                      <p className="text-lg font-bold text-emerald-600 leading-tight">{formatTime(raceResult.totalTime)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Puntuación</p>
+                      <p className="text-2xl font-black text-emerald-600 leading-tight">{raceResult.score.toFixed(1)} / 10</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-stone-400 uppercase tracking-tighter">Escala de Borg</p>
+                      <p className="text-lg font-bold text-stone-800 leading-tight">{raceResult.borgScale} / 10</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Table Section */}
+              <div className="space-y-4 pt-4">
+                <h2 className="text-xl font-black text-stone-800 border-b border-stone-100 pb-2">Desglose de Balizas</h2>
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-stone-50 text-[10px] font-black text-stone-400 uppercase tracking-widest">
+                      <th className="p-4">#</th>
+                      <th className="p-4">Descripción</th>
+                      <th className="p-4">Código Ingresado</th>
+                      <th className="p-4">Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {raceResult.results.map((res, idx) => (
+                      <tr key={idx} className="text-sm">
+                        <td className="p-4 font-bold text-stone-400">{idx + 1}</td>
+                        <td className="p-4 font-medium text-stone-600">{res.description}</td>
+                        <td className="p-4 font-mono text-stone-500">{res.enteredCode || '-'}</td>
+                        <td className="p-4">
+                          <span className={cn(
+                            "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter",
+                            res.isCorrect ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                          )}>
+                            {res.isCorrect ? 'Correcto' : 'Fallido'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div id="pdf-section-map" className="mt-12 space-y-4">
+              <h2 className="text-xl font-black text-stone-800 border-b border-stone-100 pb-2">Mapa del recorrido</h2>
+              <img id="pdf-map-img" src={selectedRoute.mapUrl} alt="Mapa" className="w-full h-auto border-2 border-stone-200 rounded-xl" crossOrigin="anonymous" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
