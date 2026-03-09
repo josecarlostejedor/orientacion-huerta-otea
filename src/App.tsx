@@ -152,55 +152,48 @@ export default function App() {
     if (!reportRef.current || !selectedRoute) return;
     
     try {
-      // 1. Solución para CORS: Intentar convertir el mapa a Base64
-      // Usamos un bloque try-catch interno para que si falla el fetch, al menos intente el resto
-      let base64Map = "";
-      try {
-        const response = await fetch(selectedRoute.mapUrl, { mode: 'cors' });
-        const blob = await response.blob();
-        base64Map = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-      } catch (e) {
-        console.warn("No se pudo pre-cargar el mapa como Base64, se intentará carga directa:", e);
+      // 1. Forzar recarga de la imagen del mapa con cache-buster para asegurar CORS
+      const reportMapImg = document.getElementById('pdf-map-img') as HTMLImageElement;
+      if (reportMapImg) {
+        reportMapImg.src = `${selectedRoute.mapUrl}?t=${Date.now()}`;
       }
 
-      // Inyectar el base64 si se obtuvo con éxito
-      const reportMapImg = document.getElementById('pdf-map-img') as HTMLImageElement;
-      if (reportMapImg && base64Map) {
-        reportMapImg.src = base64Map;
-        await new Promise(resolve => {
-          if (reportMapImg.complete) resolve(null);
-          else reportMapImg.onload = () => resolve(null);
+      // 2. Esperar a que todas las imágenes en el informe estén cargadas
+      const images = Array.from(reportRef.current.getElementsByTagName('img')) as HTMLImageElement[];
+      await Promise.all(images.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+          img.onload = resolve;
+          img.onerror = resolve;
         });
-      }
+      }));
+      
+      // 3. Pequeño delay de seguridad para el renderizado del DOM oculto
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
 
-      // Configuración común para html2canvas
+      // Configuración optimizada para html2canvas
       const h2cOptions = {
         scale: 2,
         useCORS: true,
+        allowTaint: false,
         backgroundColor: '#ffffff',
         logging: false,
-        width: 800,
-        allowTaint: false // Importante: false para no "ensuciar" el canvas y permitir exportación
+        width: 800
       };
 
       // Página 1: Datos y Resultados
       const dataSection = document.getElementById('pdf-section-data');
       if (dataSection) {
         const canvas = await html2canvas(dataSection, h2cOptions);
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/png');
         const imgW = pdfWidth - (margin * 2);
         const imgH = (canvas.height * imgW) / canvas.width;
-        pdf.addImage(imgData, 'JPEG', margin, margin, imgW, imgH);
+        pdf.addImage(imgData, 'PNG', margin, margin, imgW, imgH);
       }
 
       // Página 2: Mapa
@@ -208,11 +201,11 @@ export default function App() {
       if (mapSection) {
         pdf.addPage();
         const canvas = await html2canvas(mapSection, h2cOptions);
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/png');
         const imgW = pdfWidth - (margin * 2);
         const imgH = (canvas.height * imgW) / canvas.width;
-        const yPos = (pdfHeight - imgH) / 2;
-        pdf.addImage(imgData, 'JPEG', margin, yPos, imgW, imgH);
+        const yPos = Math.max(margin, (pdfHeight - imgH) / 2);
+        pdf.addImage(imgData, 'PNG', margin, yPos, imgW, imgH);
       }
 
       // Pies de página
@@ -226,23 +219,11 @@ export default function App() {
       }
 
       const fileName = `Resultado_${userData.firstName || 'Carrera'}.pdf`;
-      
-      // Método de descarga robusto para PC y Móvil
-      const pdfOutput = pdf.output('blob');
-      const blobUrl = URL.createObjectURL(pdfOutput);
-      const downloadLink = document.createElement('a');
-      downloadLink.href = blobUrl;
-      downloadLink.download = fileName;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      
-      // Limpieza diferida
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      pdf.save(fileName);
 
     } catch (error) {
-      console.error("Error crítico PDF:", error);
-      alert("Error al generar el PDF. Por favor, asegúrate de tener una buena conexión y vuelve a intentarlo.");
+      console.error("Error PDF:", error);
+      alert("Error al generar el PDF. Por favor, inténtalo de nuevo.");
     }
   };
 
