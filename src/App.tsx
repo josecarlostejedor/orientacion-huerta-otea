@@ -151,87 +151,208 @@ export default function App() {
   const generatePDF = async () => {
     if (!selectedRoute || !raceResult) return;
     
+    console.log("Iniciando generación de PDF...");
+    
     try {
+      // Usamos una escala de puntos (pt) que es el estándar de jsPDF
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      let y = margin;
 
-      // 1. Capturar Sección de Datos (Texto y Tablas) con html2canvas
-      const dataSection = document.getElementById('pdf-section-data');
-      if (dataSection) {
-        const canvas = await html2canvas(dataSection, {
-          scale: 2,
-          backgroundColor: '#ffffff',
-          logging: false,
-          width: 800,
-          windowWidth: 800
-        });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const imgW = pdfWidth - (margin * 2);
-        const imgH = (canvas.height * imgW) / canvas.width;
-        pdf.addImage(imgData, 'JPEG', margin, margin, imgW, imgH);
-      }
+      // --- PÁGINA 1: DATOS Y RESULTADOS ---
+      console.log("Dibujando página 1...");
+      
+      // Título Principal
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(22);
+      pdf.setTextColor(30, 30, 30);
+      pdf.text("Recorridos de Orientación en Huerta Otea", margin, y);
+      y += 8;
 
-      // 2. Añadir Mapa Directamente (Solución definitiva para CORS y Móvil)
-      // Evitamos html2canvas para la imagen externa, lo que previene errores de "tainted canvas"
-      try {
-        const response = await fetch(selectedRoute.mapUrl);
-        if (!response.ok) throw new Error('Network response was not ok');
-        const blob = await response.blob();
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
+      // Subtítulo
+      pdf.setFontSize(12);
+      pdf.setTextColor(5, 150, 105); // Emerald-600
+      pdf.text("Departamento de E.F. IES Lucía de Medrano", margin, y);
+      y += 5;
+      
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text("(App creada por Jose Carlos Tejedor)", margin, y);
+      
+      // Fecha (derecha)
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Fecha: ${raceResult.date}`, pageWidth - margin, y - 5, { align: 'right' });
+      y += 10;
 
-        pdf.addPage();
-        const imgProps = pdf.getImageProperties(base64);
-        const imgW = pdfWidth - (margin * 2);
-        const imgH = (imgProps.height * imgW) / imgProps.width;
+      // Línea separadora
+      pdf.setDrawColor(230, 230, 230);
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 15;
+
+      // SECCIÓN: DATOS DEL CORREDOR Y RESUMEN (2 columnas)
+      const colWidth = (pageWidth - (margin * 2) - 10) / 2;
+      
+      // Columna 1: Datos del Corredor
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      pdf.setTextColor(30, 30, 30);
+      pdf.text("Datos del Corredor", margin, y);
+      pdf.line(margin, y + 2, margin + colWidth, y + 2);
+      
+      let dataY = y + 10;
+      const drawDataField = (label: string, value: string, x: number, currentY: number) => {
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(label.toUpperCase(), x, currentY);
+        pdf.setFontSize(11);
+        pdf.setTextColor(50, 50, 50);
+        pdf.text(value, x, currentY + 5);
+        return currentY + 15;
+      };
+
+      dataY = drawDataField("Nombre Completo", `${raceResult.userData.firstName} ${raceResult.userData.lastName}`, margin, dataY);
+      dataY = drawDataField("Edad", `${raceResult.userData.age} años`, margin, dataY);
+      dataY = drawDataField("Curso", raceResult.userData.course, margin, dataY);
+      dataY = drawDataField("Grupo", raceResult.userData.group, margin, dataY);
+
+      // Columna 2: Resumen de Carrera
+      const col2X = margin + colWidth + 10;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      pdf.setTextColor(30, 30, 30);
+      pdf.text("Resumen de Carrera", col2X, y);
+      pdf.line(col2X, y + 2, col2X + colWidth, y + 2);
+      
+      let summaryY = y + 10;
+      summaryY = drawDataField("Recorrido", raceResult.routeName, col2X, summaryY);
+      summaryY = drawDataField("Tiempo Total", formatTime(raceResult.totalTime), col2X, summaryY);
+      
+      // Puntuación destacada
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text("PUNTUACIÓN", col2X, summaryY);
+      pdf.setFontSize(20);
+      pdf.setTextColor(5, 150, 105);
+      pdf.text(`${raceResult.score.toFixed(1)} / 10`, col2X, summaryY + 8);
+      summaryY += 18;
+      
+      summaryY = drawDataField("Escala de Borg", `${raceResult.borgScale} / 10`, col2X, summaryY);
+
+      y = Math.max(dataY, summaryY) + 10;
+
+      // TABLA DE BALIZAS
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      pdf.setTextColor(30, 30, 30);
+      pdf.text("Desglose de Balizas", margin, y);
+      pdf.line(margin, y + 2, pageWidth - margin, y + 2);
+      y += 10;
+
+      // Cabecera Tabla
+      pdf.setFillColor(245, 245, 245);
+      pdf.rect(margin, y, pageWidth - (margin * 2), 8, 'F');
+      pdf.setFontSize(9);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text("#", margin + 5, y + 5.5);
+      pdf.text("DESCRIPCIÓN", margin + 15, y + 5.5);
+      pdf.text("CÓDIGO", margin + 110, y + 5.5);
+      pdf.text("RESULTADO", margin + 150, y + 5.5);
+      y += 8;
+
+      // Filas Tabla
+      raceResult.results.forEach((res, idx) => {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.setTextColor(80, 80, 80);
         
-        // Si la imagen es muy alta, ajustamos para que quepa en la página
-        let finalH = imgH;
-        let finalW = imgW;
-        if (imgH > pdfHeight - (margin * 2)) {
-          finalH = pdfHeight - (margin * 2);
-          finalW = (imgProps.width * finalH) / imgProps.height;
+        // Alternar fondo
+        if (idx % 2 === 1) {
+          pdf.setFillColor(252, 252, 252);
+          pdf.rect(margin, y, pageWidth - (margin * 2), 10, 'F');
         }
         
-        const xPos = (pdfWidth - finalW) / 2;
-        const yPos = (pdfHeight - finalH) / 2;
+        pdf.text((idx + 1).toString(), margin + 5, y + 6.5);
+        pdf.text(res.description, margin + 15, y + 6.5);
+        pdf.text(res.enteredCode || "-", margin + 110, y + 6.5);
         
-        pdf.addImage(base64, 'JPEG', xPos, yPos, finalW, finalH);
-      } catch (mapError) {
-        console.error("No se pudo añadir el mapa al PDF:", mapError);
-        // Continuamos para que al menos se descargue la parte de datos
+        if (res.isCorrect) {
+          pdf.setTextColor(5, 150, 105);
+          pdf.text("Correcto", margin + 150, y + 6.5);
+        } else {
+          pdf.setTextColor(220, 38, 38);
+          pdf.text("Fallido", margin + 150, y + 6.5);
+        }
+        
+        pdf.setDrawColor(240, 240, 240);
+        pdf.line(margin, y + 10, pageWidth - margin, y + 10);
+        y += 10;
+      });
+
+      // --- PÁGINA 2: MAPA ---
+      console.log("Preparando página 2 (mapa)...");
+      try {
+        const response = await fetch(selectedRoute.mapUrl);
+        if (response.ok) {
+          const blob = await response.blob();
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+
+          pdf.addPage();
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(14);
+          pdf.setTextColor(30, 30, 30);
+          pdf.text("Mapa del Recorrido", margin, margin);
+          pdf.line(margin, margin + 2, pageWidth - margin, margin + 2);
+
+          const imgProps = pdf.getImageProperties(base64);
+          const availableW = pageWidth - (margin * 2);
+          const availableH = pageHeight - (margin * 3);
+          
+          let finalW = availableW;
+          let finalH = (imgProps.height * finalW) / imgProps.width;
+          
+          if (finalH > availableH) {
+            finalH = availableH;
+            finalW = (imgProps.width * finalH) / imgProps.height;
+          }
+          
+          const xPos = (pageWidth - finalW) / 2;
+          const yPos = margin + 10;
+          
+          pdf.addImage(base64, imgProps.fileType, xPos, yPos, finalW, finalH, undefined, 'FAST');
+          console.log("Mapa añadido con éxito.");
+        } else {
+          console.warn("No se pudo descargar la imagen del mapa.");
+        }
+      } catch (e) {
+        console.error("Error al cargar mapa para PDF:", e);
       }
 
-      // 3. Añadir pies de página
+      // Pies de página en todas las páginas
       const totalPages = pdf.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
         pdf.setFontSize(8);
         pdf.setTextColor(150, 150, 150);
-        pdf.text("IES Lucía de Medrano - Departamento de E.F.", pdfWidth / 2, pdfHeight - 10, { align: 'center' });
-        pdf.text(`Página ${i} de ${totalPages}`, pdfWidth - 20, pdfHeight - 10);
+        pdf.text("IES Lucía de Medrano - Departamento de E.F.", pageWidth / 2, pageHeight - 10, { align: 'center' });
+        pdf.text(`Página ${i} de ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
       }
 
+      // Descarga directa
       const fileName = `Resultado_${userData.firstName || 'Carrera'}.pdf`;
-      
-      // Método de descarga robusto para PC y Móvil
-      const pdfBlob = pdf.output('blob');
-      const blobURL = URL.createObjectURL(pdfBlob);
-      
-      const downloadLink = document.createElement('a');
-      downloadLink.href = blobURL;
-      downloadLink.download = fileName;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      
-      setTimeout(() => URL.revokeObjectURL(blobURL), 2000);
+      console.log("Guardando PDF...");
+      pdf.save(fileName);
+      console.log("PDF generado y descargado.");
 
     } catch (error) {
       console.error("Error crítico al generar PDF:", error);
