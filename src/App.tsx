@@ -152,12 +152,14 @@ export default function App() {
     if (!reportRef.current) return;
     
     try {
-      // Usamos la configuración más compatible de jsPDF
+      // Pequeña pausa para asegurar que el DOM oculto esté listo
+      await new Promise(resolve => setTimeout(resolve, 250));
+
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'mm',
         format: 'a4',
-        putOnlyUsedFonts: true
+        compress: true
       });
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -178,13 +180,14 @@ export default function App() {
         const canvas1 = await html2canvas(page1Element, { 
           scale: 2, 
           useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          logging: false,
+          width: 800
         });
-        const imgData1 = canvas1.toDataURL('image/png');
+        const imgData1 = canvas1.toDataURL('image/jpeg', 0.8);
         const displayWidth1 = pdfWidth - (margin * 2);
         const displayHeight1 = (canvas1.height * displayWidth1) / canvas1.width;
-        pdf.addImage(imgData1, 'PNG', margin, margin, displayWidth1, displayHeight1);
+        pdf.addImage(imgData1, 'JPEG', margin, margin, displayWidth1, displayHeight1);
       }
 
       // Capturar página 2: Mapa
@@ -194,14 +197,15 @@ export default function App() {
         const canvas2 = await html2canvas(page2Element, { 
           scale: 2, 
           useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          logging: false,
+          width: 800
         });
-        const imgData2 = canvas2.toDataURL('image/png');
+        const imgData2 = canvas2.toDataURL('image/jpeg', 0.8);
         const displayWidth2 = pdfWidth - (margin * 2);
         const displayHeight2 = (canvas2.height * displayWidth2) / canvas2.width;
         const yPos = (pdfHeight - displayHeight2) / 2;
-        pdf.addImage(imgData2, 'PNG', margin, yPos, displayWidth2, displayHeight2);
+        pdf.addImage(imgData2, 'JPEG', margin, yPos, displayWidth2, displayHeight2);
       }
 
       // Añadir pies de página
@@ -210,27 +214,13 @@ export default function App() {
         addFooter(i, total);
       }
 
-      // Método de descarga universal (Blob + Link) - El más compatible en 2024
+      // Descarga definitiva
       const fileName = `Resultado_${userData.firstName || 'Carrera'}.pdf`;
-      const blob = pdf.output('blob');
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.style.visibility = 'hidden';
-      link.style.position = 'absolute';
-      document.body.appendChild(link);
-      link.click();
-      
-      // Limpieza
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }, 200);
+      pdf.save(fileName);
 
     } catch (error) {
       console.error("Error crítico PDF:", error);
-      alert("No se pudo generar el PDF. Por favor, asegúrate de que el mapa se haya cargado correctamente.");
+      alert("Error al generar el PDF. Por favor, inténtalo de nuevo en unos segundos.");
     }
   };
 
@@ -486,7 +476,7 @@ export default function App() {
               </footer>
 
               {/* Hidden PDF content - Definitive off-screen fix */}
-              <div style={{ position: 'absolute', top: '-10000px', left: '0', width: '800px', opacity: 0, pointerEvents: 'none', zIndex: -100 }}>
+              <div style={{ position: 'absolute', top: '-20000px', left: '0', width: '800px', visibility: 'visible', pointerEvents: 'none', zIndex: -100 }}>
                 <div ref={reportRef} className="w-[800px] bg-white text-stone-900 p-12">
                   <div id="pdf-section-data" className="space-y-10">
                     {/* Header Section */}
