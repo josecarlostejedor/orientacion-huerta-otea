@@ -149,78 +149,87 @@ export default function App() {
   };
 
   const generatePDF = async () => {
-    if (!reportRef.current) return;
+    if (!reportRef.current || !selectedRoute) return;
     
     try {
-      // Pequeña pausa para asegurar que el DOM oculto esté listo
-      await new Promise(resolve => setTimeout(resolve, 250));
-
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
+      // 1. Asegurar que todas las imágenes en el informe estén cargadas
+      const images = Array.from(reportRef.current.getElementsByTagName('img'));
+      await Promise.all(images.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        });
+      }));
       
+      // 2. Pausa de seguridad para el renderizado del DOM oculto
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
 
-      const addFooter = (pNum: number, tNum: number) => {
-        pdf.setPage(pNum);
-        pdf.setFontSize(8);
-        pdf.setTextColor(150, 150, 150);
-        pdf.text("IES Lucía de Medrano - Departamento de E.F.", pdfWidth / 2, pdfHeight - 10, { align: 'center' });
-        pdf.text(`Página ${pNum} de ${tNum}`, pdfWidth - 20, pdfHeight - 10);
-      };
-
-      // Capturar página 1: Datos y Resultados
-      const page1Element = document.getElementById('pdf-section-data');
-      if (page1Element) {
-        const canvas1 = await html2canvas(page1Element, { 
-          scale: 2, 
+      // Página 1: Datos y Resultados
+      const dataSection = document.getElementById('pdf-section-data');
+      if (dataSection) {
+        const canvas = await html2canvas(dataSection, {
+          scale: 2,
           useCORS: true,
           backgroundColor: '#ffffff',
           logging: false,
-          width: 800
+          windowWidth: 800
         });
-        const imgData1 = canvas1.toDataURL('image/jpeg', 0.8);
-        const displayWidth1 = pdfWidth - (margin * 2);
-        const displayHeight1 = (canvas1.height * displayWidth1) / canvas1.width;
-        pdf.addImage(imgData1, 'JPEG', margin, margin, displayWidth1, displayHeight1);
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgW = pdfWidth - (margin * 2);
+        const imgH = (canvas.height * imgW) / canvas.width;
+        pdf.addImage(imgData, 'JPEG', margin, margin, imgW, imgH);
       }
 
-      // Capturar página 2: Mapa
-      const page2Element = document.getElementById('pdf-section-map');
-      if (page2Element) {
+      // Página 2: Mapa
+      const mapSection = document.getElementById('pdf-section-map');
+      if (mapSection) {
         pdf.addPage();
-        const canvas2 = await html2canvas(page2Element, { 
-          scale: 2, 
+        const canvas = await html2canvas(mapSection, {
+          scale: 2,
           useCORS: true,
           backgroundColor: '#ffffff',
           logging: false,
-          width: 800
+          windowWidth: 800
         });
-        const imgData2 = canvas2.toDataURL('image/jpeg', 0.8);
-        const displayWidth2 = pdfWidth - (margin * 2);
-        const displayHeight2 = (canvas2.height * displayWidth2) / canvas2.width;
-        const yPos = (pdfHeight - displayHeight2) / 2;
-        pdf.addImage(imgData2, 'JPEG', margin, yPos, displayWidth2, displayHeight2);
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgW = pdfWidth - (margin * 2);
+        const imgH = (canvas.height * imgW) / canvas.width;
+        const yPos = Math.max(margin, (pdfHeight - imgH) / 2);
+        pdf.addImage(imgData, 'JPEG', margin, yPos, imgW, imgH);
       }
 
       // Añadir pies de página
       const total = pdf.getNumberOfPages();
       for (let i = 1; i <= total; i++) {
-        addFooter(i, total);
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text("IES Lucía de Medrano - Departamento de E.F.", pdfWidth / 2, pdfHeight - 10, { align: 'center' });
+        pdf.text(`Página ${i} de ${total}`, pdfWidth - 20, pdfHeight - 10);
       }
 
-      // Descarga definitiva
+      // 3. Descarga mediante Blob para máxima compatibilidad
       const fileName = `Resultado_${userData.firstName || 'Carrera'}.pdf`;
-      pdf.save(fileName);
+      const pdfBlob = pdf.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
 
     } catch (error) {
-      console.error("Error crítico PDF:", error);
-      alert("Error al generar el PDF. Por favor, inténtalo de nuevo en unos segundos.");
+      console.error("Error PDF:", error);
+      alert("Error al generar el PDF. Por favor, inténtalo de nuevo. Si persiste, verifica tu conexión a internet.");
     }
   };
 
@@ -476,7 +485,7 @@ export default function App() {
               </footer>
 
               {/* Hidden PDF content - Definitive off-screen fix */}
-              <div style={{ position: 'absolute', top: '-20000px', left: '0', width: '800px', visibility: 'visible', pointerEvents: 'none', zIndex: -100 }}>
+              <div style={{ position: 'absolute', left: '-9999px', top: '0', width: '800px', background: 'white', visibility: 'visible', pointerEvents: 'none', zIndex: -1000 }}>
                 <div ref={reportRef} className="w-[800px] bg-white text-stone-900 p-12">
                   <div id="pdf-section-data" className="space-y-10">
                     {/* Header Section */}
