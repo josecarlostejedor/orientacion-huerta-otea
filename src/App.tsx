@@ -152,34 +152,51 @@ export default function App() {
     if (!reportRef.current || !selectedRoute) return;
     
     try {
-      // 1. Asegurar que todas las imágenes en el informe estén cargadas
-      const images = Array.from(reportRef.current.getElementsByTagName('img'));
-      await Promise.all(images.map(img => {
-        if (img.complete) return Promise.resolve();
-        return new Promise(resolve => {
-          img.onload = resolve;
-          img.onerror = resolve;
+      // 1. Solución para CORS: Intentar convertir el mapa a Base64
+      // Usamos un bloque try-catch interno para que si falla el fetch, al menos intente el resto
+      let base64Map = "";
+      try {
+        const response = await fetch(selectedRoute.mapUrl, { mode: 'cors' });
+        const blob = await response.blob();
+        base64Map = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
         });
-      }));
-      
-      // 2. Pausa de seguridad para el renderizado del DOM oculto
-      await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (e) {
+        console.warn("No se pudo pre-cargar el mapa como Base64, se intentará carga directa:", e);
+      }
+
+      // Inyectar el base64 si se obtuvo con éxito
+      const reportMapImg = document.getElementById('pdf-map-img') as HTMLImageElement;
+      if (reportMapImg && base64Map) {
+        reportMapImg.src = base64Map;
+        await new Promise(resolve => {
+          if (reportMapImg.complete) resolve(null);
+          else reportMapImg.onload = () => resolve(null);
+        });
+      }
 
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
 
+      // Configuración común para html2canvas
+      const h2cOptions = {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: 800,
+        allowTaint: false // Importante: false para no "ensuciar" el canvas y permitir exportación
+      };
+
       // Página 1: Datos y Resultados
       const dataSection = document.getElementById('pdf-section-data');
       if (dataSection) {
-        const canvas = await html2canvas(dataSection, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-          windowWidth: 800
-        });
+        const canvas = await html2canvas(dataSection, h2cOptions);
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const imgW = pdfWidth - (margin * 2);
         const imgH = (canvas.height * imgW) / canvas.width;
@@ -190,21 +207,15 @@ export default function App() {
       const mapSection = document.getElementById('pdf-section-map');
       if (mapSection) {
         pdf.addPage();
-        const canvas = await html2canvas(mapSection, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-          windowWidth: 800
-        });
+        const canvas = await html2canvas(mapSection, h2cOptions);
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const imgW = pdfWidth - (margin * 2);
         const imgH = (canvas.height * imgW) / canvas.width;
-        const yPos = Math.max(margin, (pdfHeight - imgH) / 2);
+        const yPos = (pdfHeight - imgH) / 2;
         pdf.addImage(imgData, 'JPEG', margin, yPos, imgW, imgH);
       }
 
-      // Añadir pies de página
+      // Pies de página
       const total = pdf.getNumberOfPages();
       for (let i = 1; i <= total; i++) {
         pdf.setPage(i);
@@ -214,22 +225,24 @@ export default function App() {
         pdf.text(`Página ${i} de ${total}`, pdfWidth - 20, pdfHeight - 10);
       }
 
-      // 3. Descarga mediante Blob para máxima compatibilidad
       const fileName = `Resultado_${userData.firstName || 'Carrera'}.pdf`;
-      const pdfBlob = pdf.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
       
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      // Método de descarga robusto para PC y Móvil
+      const pdfOutput = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(pdfOutput);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = blobUrl;
+      downloadLink.download = fileName;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      
+      // Limpieza diferida
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
     } catch (error) {
-      console.error("Error PDF:", error);
-      alert("Error al generar el PDF. Por favor, inténtalo de nuevo. Si persiste, verifica tu conexión a internet.");
+      console.error("Error crítico PDF:", error);
+      alert("Error al generar el PDF. Por favor, asegúrate de tener una buena conexión y vuelve a intentarlo.");
     }
   };
 
@@ -590,7 +603,7 @@ export default function App() {
                   </div>
                   <div id="pdf-section-map" className="mt-12 space-y-4">
                     <h2 className="text-xl font-black text-stone-800 border-b border-stone-100 pb-2">Mapa del recorrido</h2>
-                    <img src={selectedRoute.mapUrl} alt="Mapa" className="w-full h-auto border-2 border-stone-200 rounded-xl" crossOrigin="anonymous" />
+                    <img id="pdf-map-img" src={selectedRoute.mapUrl} alt="Mapa" className="w-full h-auto border-2 border-stone-200 rounded-xl" crossOrigin="anonymous" />
                   </div>
                 </div>
               </div>
