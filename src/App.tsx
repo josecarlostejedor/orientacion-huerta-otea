@@ -1,7 +1,3 @@
-Mira lo que teníamos antes de que hicieses los cambios y que funcionaba: 
-
-a) types.ts 
-
 export interface UserData {
   firstName: string;
   lastName: string;
@@ -16,6 +12,7 @@ export interface BalizaResult {
   isCorrect: boolean;
   correctCode: string;
   description: string;
+  partialTime?: number;
 }
 
 export interface RaceResult {
@@ -30,13 +27,3 @@ export interface RaceResult {
   borgScale: number;
   date: string;
 }
-
-
-
-El otro que has cambiado es App.tsx en el anterior que funcionaba perfectamente tenía este código: 
-
-
-Puedes chequear para encontrar la solución
-??? No estropees nada manten todo como estaba
-
-
