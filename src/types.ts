@@ -12,6 +12,7 @@ export interface BalizaResult {
   isCorrect: boolean;
   correctCode: string;
   description: string;
+  partialTime?: number;
 }
 
 export interface RaceResult {
